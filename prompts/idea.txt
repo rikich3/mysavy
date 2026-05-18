@@ -1,0 +1,103 @@
+Plan the Development for a web app for skilled persons to show their craft and work demanded by businesses.
+The main idea is a web plataform for companies to create [themes] (a topic, a skill, or tool that the company wants from their candidates for hiring to be proficient) that they subscribe to and where people interested in showcasing their skill can post their exploits and projects.
+
+There are two distinct user for this application:
+- Company users (Companies and entities that are looking for hires or interns)
+- Regular users (People that are looking for work or work experience.)
+Once logged in, a company user will be able to:
+- Post a theme and subscribe to a theme.
+- Review the content (videos from regular users showcasing their knowdlege and ease of use of the theme)
+- Check statistics of regular users (mock activity and rating of content)
+Once loggedd in, a regular user will be able to:
+- Subscribe and Post on a theme, which follow this workflow:
+    - select an [estilo de edicion]
+        the available [estilo de edicion] are:
+        - default style:
+        requieres [camera matching footage] for the [session]
+        requires audio recording for the [session]
+    - Choose between: [i have sources] (if the user has footage of his own already) or [real time] (the user wants to record its material live on the app)
+    - if "i have sources" selected:
+        - Upload the sources, for the session and the camera (if camera was selected) [they must match lenght]
+        - the [app media editor] is showned, allowing basic editing.
+        - the upload confirmation, which shows the final result
+    - if "real time" selected:
+        - the user will have to choose if he wants to record camera and audio as well(this option is showned if it is optional for the [estilo de edicion]), select a window or tab to record, then confirm that he is ready, then the app will start recording.
+        - an invisible to recording frame will appear, indicating that it is currently recording his screen. A picture-in-picture pop-up with a button to stop recording will also appear, the recording will stop when the user presses the stop button in the web app or in the pop-up
+        - the app media editor with the [default edition] applied to the record material is showned, allowing basic editing.
+        - the upload confirmation, which shows the final result
+
+[app media editor]:
+it has:
+    - a video player (it concatenates the clips to show what would be the final footage).
+    - a vertical list of card that contain the clips.
+in an EDL approach, the user will see the list of clips that the "analize video service" identified.
+each clip appears as a card with:
+    - Start/End time number inputs.
+
+    - A button to play from the start of the segment on the main <video> player.
+
+    - A dropdown for the action (Normal, Zoom).
+
+    - A slider for audio tuning.
+
+    - "Move Up", "Move Down", and "Delete" buttons.
+
+---
+
+the frontend will be vite with react.
+the backend (comprised by the "analize videos service" and the "render service") and will be hosted in my vps, so in the carpet builds/ you will add the docker compose for the services and you will help me assert the functionality, bundle up the image and up the services on the vps.
+The web app has the following modules:
+<modules>
+
+    The video automatic handling module:
+    ---
+    contains the following services:
+        - analize videos service:
+            It will take the sources and classify timestamps on certain [style patterns] and [clips] that are defined in the [estilo de edicion], it will also get a transcription of the audio in the form of [sentence, timestamp] entries.
+            Depending on the [estilo de edicion] the [style patterns] are:
+                -[default style]:
+                    - user is talking: there is transcription for that timestamp (filled pauses or speech disfluencies are ignored)
+                    - session is active: when the user is working in the session.
+                    - session is inactive: when there is no frame difference for a prolonged time (>5 sec).
+                    - user is silent: when the microphone doesnt captures spoken language for a prolonged time (>5 sec, filled pauses or speech disfluencies dont count as spoken language)
+            Depending on the [estilo de edicion] the [clips] are:
+                -[default style]:
+                    - [elocuente]: [user is talking] and [session is inactive]
+                    - [explaining]: [user is talking] and [session is active]
+                    - [focused]: [user is silent] and [session is active]
+            Depending on the [modo] selected it will use different means to identify the [style patterns]
+            the available modes are:
+                -[arithmetic mode]:
+                    For [default style]'s [style patterns]:
+                        - use opencv with frame differencing techniques to identify when the user is not active
+                        - use ffmpeg with the silencedetect filter to identify when the user is not talking, as well as the transcripts timestamps
+
+        - render service:
+            It will compile the final video and submit it to the db.
+            Depending on the [estilo de edicion] the ensambling process is different:
+                -[default style]:
+                    - [elocuente] clips only show the camera footage.
+                    - [explaining] clips show the camera on the top right corner (about a quarter of the size of the whole video)
+                    - [focused] clips show only the session
+                    - subtitles are added.
+    
+    The user space module:
+    ---
+    Basically the frontend and UI/UX.
+        The style for the web app is: professional, accesible and modern.
+
+</modules>
+
+Add to the project everything that it needs to work as described.
+
+Create 8 users:
+4 companies users
+    [name: Leonela, username: Leo, company: Google, password: Leonela1_Empresa, email: leonela@google.com], 
+    [name: Karen,  username: Karen, company: Amazon, password: Karen1_Empresa, email: karen@amazon.com],
+    [name: Liz,  username: Liz, company: Oracle, password: Liz1_Empresa, email: liz@oracle.com],
+    [name: Ricardo,  username: Rick, company: NTTData, password: Ricardo1_Empresa, email: ricardo@nttdata.com]
+4 regular users
+    [name: Leonela, username: Leo, password: Leonela1_Regular, email: leonela@gmail.com], 
+    [name: Karen,  username: Karen, password: Karen1_Regular, email: karen@gmail.com],
+    [name: Liz,  username: Liz, password: Liz1_Regular, email: liz@gmail.com],
+    [name: Ricardo,  username: Rick, password: Ricardo1_Regular, email: ricardo@gmail.com]
