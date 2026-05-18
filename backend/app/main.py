@@ -11,7 +11,11 @@ app = FastAPI(title="MISAVY API")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this
+    allow_origins=[
+        "http://localhost:5173", 
+        "http://localhost:8080", 
+        "https://mysavy.frennow.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
