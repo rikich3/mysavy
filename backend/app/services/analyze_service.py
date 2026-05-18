@@ -1,19 +1,13 @@
 import cv2
 import ffmpeg
-import whisper
 import tempfile
 import os
 import json
 import re
+from openai import OpenAI
+from app.core.config import settings
 
-model = None
-
-def get_whisper_model():
-    global model
-    if model is None:
-        # Load tiny model for speed during hackathon/dev
-        model = whisper.load_model("tiny")
-    return model
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 def extract_audio(video_path: str, output_audio_path: str):
     try:
@@ -136,11 +130,19 @@ def analyze_videos(session_video_path: str, camera_video_path: str):
     inactivities = detect_session_inactivity(session_video_path)
     print(f"Inactivities: {inactivities}")
     
-    print("Transcribing...")
-    whisper_model = get_whisper_model()
-    result = whisper_model.transcribe(audio_path)
+    print("Transcribing with OpenAI API...")
+    try:
+        with open(audio_path, "rb") as audio_file:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1", 
+                file=audio_file,
+                response_format="verbose_json"
+            )
+            segments = transcript.segments if hasattr(transcript, 'segments') else transcript.get("segments", [])
+    except Exception as e:
+        print(f"Error calling OpenAI API: {e}")
+        segments = []
     
-    segments = result["segments"]
     edl = []
     
     for seg in segments:

@@ -9,6 +9,6 @@ ffmpeg-python==0.2.0
 opencv-python-headless==4.8.1.78
 pydantic==2.5.2
 pydantic-settings==2.1.0
-openai-whisper
+openai
 python-multipart==0.0.6
 PyJWT==2.8.0
