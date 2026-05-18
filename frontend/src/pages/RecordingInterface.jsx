@@ -7,55 +7,114 @@ export default function RecordingInterface() {
     const theme = location.state?.theme;
 
     const [isRecording, setIsRecording] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [includeCamera, setIncludeCamera] = useState(true);
     const [statusText, setStatusText] = useState('Setup your recording');
 
-    const mediaRecorderRef = useRef(null);
-    const [recordedChunks, setRecordedChunks] = useState([]);
+    const sessionRecorderRef = useRef(null);
+    const cameraRecorderRef = useRef(null);
+    
+    const sessionChunksRef = useRef([]);
+    const cameraChunksRef = useRef([]);
     
     const handleStartRecording = async () => {
         try {
-            // Request Screen
+            sessionChunksRef.current = [];
+            cameraChunksRef.current = [];
+            
+            // Get screen stream
             const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
             
-            // Note: A full implementation would use a Canvas to composite screen+camera, 
-            // or record them as separate streams using two MediaRecorders.
-            // For this UI mockup, we will record just the screen as the "Session" 
-            // and simulate the PiP or secondary camera recording.
+            // Get camera stream if selected
+            let cameraStream = null;
+            if (includeCamera) {
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            }
 
-            const options = { mimeType: 'video/webm' };
-            const mediaRecorder = new MediaRecorder(screenStream, options);
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    setRecordedChunks(prev => [...prev, event.data]);
-                }
+            // Setup Screen Recorder
+            const sessionRecorder = new MediaRecorder(screenStream, { mimeType: 'video/webm' });
+            sessionRecorder.ondataavailable = e => {
+                if (e.data.size > 0) sessionChunksRef.current.push(e.data);
             };
+            sessionRecorderRef.current = sessionRecorder;
 
-            mediaRecorder.onstop = () => {
-                setStatusText('Recording stopped. Ready to upload.');
-            };
+            // Setup Camera Recorder
+            if (cameraStream) {
+                const cameraRecorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm' });
+                cameraRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) cameraChunksRef.current.push(e.data);
+                };
+                cameraRecorderRef.current = cameraRecorder;
+            }
 
-            mediaRecorderRef.current = mediaRecorder;
-            mediaRecorder.start();
+            // Start recording
+            sessionRecorder.start(1000);
+            if (cameraRecorderRef.current) cameraRecorderRef.current.start(1000);
+            
             setIsRecording(true);
             setStatusText('Recording in progress...');
+
+            // Handle user stopping screen share from browser controls
+            screenStream.getVideoTracks()[0].onended = () => {
+                handleStopRecording();
+            };
+
         } catch (err) {
             console.error("Error starting recording:", err);
-            alert("Failed to capture screen.");
+            alert("Failed to capture screen or camera. Please ensure permissions are granted.");
         }
     };
 
     const handleStopRecording = () => {
-        if (mediaRecorderRef.current) {
-            mediaRecorderRef.current.stop();
-            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-            setIsRecording(false);
+        if (!isRecording) return;
+        setStatusText('Processing recording...');
+        
+        const stopRecorder = (recorder) => {
+            if (recorder && recorder.state !== 'inactive') {
+                recorder.stop();
+                recorder.stream.getTracks().forEach(t => t.stop());
+            }
+        };
+
+        stopRecorder(sessionRecorderRef.current);
+        stopRecorder(cameraRecorderRef.current);
+        
+        setIsRecording(false);
+        setIsUploading(true);
+
+        // Wait a brief moment for final chunks to arrive
+        setTimeout(uploadRecordings, 500);
+    };
+
+    const uploadRecordings = async () => {
+        setStatusText('Uploading videos to server...');
+        try {
+            const formData = new FormData();
+            formData.append('theme_id', theme.id);
             
-            // Navigate to editor (mocking the upload step for now)
-            setTimeout(() => {
-                navigate('/editor', { state: { theme, mockedRealtime: true } });
-            }, 1000);
+            const sessionBlob = new Blob(sessionChunksRef.current, { type: 'video/webm' });
+            formData.append('session_video', sessionBlob, 'session.webm');
+            
+            if (includeCamera && cameraChunksRef.current.length > 0) {
+                const cameraBlob = new Blob(cameraChunksRef.current, { type: 'video/webm' });
+                formData.append('camera_video', cameraBlob, 'camera.webm');
+            } else {
+                // If no camera, just send the session as both for now to satisfy backend requirement
+                formData.append('camera_video', sessionBlob, 'camera.webm');
+            }
+
+            import api from '../api';
+            const res = await api.post('/videos/', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
+            setStatusText('Upload complete! Redirecting to Editor...');
+            navigate('/editor', { state: { theme, videoId: res.data.video_id } });
+            
+        } catch (err) {
+            console.error("Upload failed", err);
+            setStatusText('Upload failed. Please try again.');
+            setIsUploading(false);
         }
     };
 
