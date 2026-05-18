@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import api from '../api';
 
 export default function RecordingInterface() {
     const location = useLocation();
@@ -103,7 +104,6 @@ export default function RecordingInterface() {
                 formData.append('camera_video', sessionBlob, 'camera.webm');
             }
 
-            import api from '../api';
             const res = await api.post('/videos/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
